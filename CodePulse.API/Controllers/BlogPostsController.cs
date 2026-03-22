@@ -1,4 +1,4 @@
-﻿using CodePulse.API.Models.Domain;
+using CodePulse.API.Models.Domain;
 using CodePulse.API.Models.DTO;
 using CodePulse.API.Repositories.Implementation;
 using CodePulse.API.Repositories.Interface;
@@ -30,10 +30,17 @@ namespace CodePulse.API.Controllers
         }
         //url : {apibaseurl}/api/blogposts
         [HttpGet]
-        public async Task<IActionResult> getAllBlogPosts()
+        public async Task<IActionResult> getAllBlogPosts([FromQuery] string? SearchText = null, [FromQuery] string? SortBy = null, [FromQuery] string? SortDirection = null, [FromQuery] int? PageSize = null, [FromQuery] int? PageNumber = null)
         {
-            var response= await _BlogPostRepository.getAllAsync();
+            var response= await _BlogPostRepository.getAllAsync(SearchText, SortBy, SortDirection, PageSize, PageNumber);
             return Ok(response);
+        }
+        [HttpGet]
+        [Route("count")]
+        public async Task<IActionResult> GetCount([FromQuery] string? SearchText = null)
+        {
+            int? BlogPostsCount = await _BlogPostRepository.GetCount(SearchText);
+            return Ok(BlogPostsCount);
         }
         //url : {apibaseurl}/api/blogposts/{id}
         [HttpGet]

@@ -1,4 +1,4 @@
-﻿using Azure.Core;
+using Azure.Core;
 using CodePulse.API.Data;
 using CodePulse.API.Models.Domain;
 using CodePulse.API.Models.DTO;
@@ -64,11 +64,28 @@ namespace CodePulse.API.Repositories.Implementation
             return response;
         }
 
-        public async Task<IEnumerable<BlogPostsDTO>> getAllAsync()
+        public async Task<IEnumerable<BlogPostsDTO>> getAllAsync(string? SearchText = null, string? SortBy = null, string? SortDirection = null, int? PageSize = 5, int? PageNumber = 1)
         {
-           var blogPosts= await _Context.BlogPosts.Include(X => X.Categories).ToListAsync();
+            var blogPosts = _Context.BlogPosts.Include(X => X.Categories).AsQueryable();
+
+            if (!string.IsNullOrEmpty(SearchText))
+            {
+                blogPosts = blogPosts.Where(x => x.Title.Contains(SearchText) || x.ShortDescription.Contains(SearchText));
+            }
+            if (string.Equals(SortBy, "Title", StringComparison.OrdinalIgnoreCase))
+            {
+                blogPosts = string.Equals(SortDirection, "asc") ? blogPosts.OrderBy(x => x.Title) : blogPosts.OrderByDescending(x => x.Title);
+            }
+            if (string.Equals(SortBy, "ShortDescription", StringComparison.OrdinalIgnoreCase))
+            {
+                blogPosts = string.Equals(SortDirection, "asc") ? blogPosts.OrderBy(x => x.ShortDescription) : blogPosts.OrderByDescending(x => x.ShortDescription);
+            }
+
+            blogPosts = blogPosts.Skip(((PageNumber - 1) * PageSize) ?? 0).Take(PageSize ?? 5);
+
+            var result = await blogPosts.ToListAsync();
             var response = new List<BlogPostsDTO>();
-            foreach (var blogPost in blogPosts)
+            foreach (var blogPost in result)
             {
                 response.Add(new BlogPostsDTO
                 {
@@ -90,6 +107,17 @@ namespace CodePulse.API.Repositories.Implementation
                 });
             }
             return response;
+        }
+
+        public async Task<int?> GetCount(string? SearchText = null)
+        {
+            var blogPosts = _Context.BlogPosts.AsQueryable();
+            if (!string.IsNullOrEmpty(SearchText))
+            {
+                blogPosts = blogPosts.Where(x => x.Title.Contains(SearchText) || x.ShortDescription.Contains(SearchText));
+            }
+            var blogPostCount = await blogPosts.CountAsync();
+            return blogPostCount;
         }
 
         public async Task<BlogPostsDTO?> GetByIdAsync(Guid id)

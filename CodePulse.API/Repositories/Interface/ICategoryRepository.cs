@@ -1,4 +1,4 @@
-﻿using CodePulse.API.Models.Domain;
+using CodePulse.API.Models.Domain;
 using Microsoft.AspNetCore.Razor.TagHelpers;
 using System.Globalization;
 
@@ -11,6 +11,6 @@ namespace CodePulse.API.Repositories.Interface
          Task<Category?> GetCategoryByID(Guid id);
          Task<Category?> UpdateCategory(Category request);
          Task<Category?> DeleteCategory(Guid id);
-         Task<int?> GetCount();
+         Task<int?> GetCount(string? SearchText = null);
     }
 }

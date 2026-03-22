@@ -1,4 +1,4 @@
-﻿using Azure.Core;
+using Azure.Core;
 using CodePulse.API.Data;
 using CodePulse.API.Models.Domain;
 using CodePulse.API.Repositories.Interface;
@@ -72,9 +72,14 @@ namespace CodePulse.API.Repositories.Implementation
             await _Context.SaveChangesAsync();
             return existingcategory;
         }
-        public async Task<int?> GetCount()
+        public async Task<int?> GetCount(string? SearchText = null)
         {
-            var categoryCount = await _Context.Categories.CountAsync();
+            var categories = _Context.Categories.AsQueryable();
+            if (!string.IsNullOrEmpty(SearchText))
+            {
+                categories = categories.Where(x => x.Name.Contains(SearchText) || x.URLHandle.Contains(SearchText));
+            }
+            var categoryCount = await categories.CountAsync();
             return categoryCount;
         }
     }

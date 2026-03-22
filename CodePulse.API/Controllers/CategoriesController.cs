@@ -1,4 +1,4 @@
-﻿using CodePulse.API.Data;
+using CodePulse.API.Data;
 using CodePulse.API.Models.Domain;
 using CodePulse.API.Models.DTO;
 using CodePulse.API.Repositories.Implementation;
@@ -118,9 +118,9 @@ namespace CodePulse.API.Controllers
         }
         [HttpGet]
         [Route("count")]
-        public async Task<IActionResult> GetCount()
+        public async Task<IActionResult> GetCount([FromQuery] string? SearchText = null)
         {
-            int? CategoriesCount = await _CategoryRepository.GetCount();
+            int? CategoriesCount = await _CategoryRepository.GetCount(SearchText);
             
             return Ok(CategoriesCount);
         }
