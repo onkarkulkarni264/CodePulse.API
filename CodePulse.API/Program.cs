@@ -1,6 +1,7 @@
 using CodePulse.API.Data;
 using CodePulse.API.Repositories.Implementation;
 using CodePulse.API.Repositories.Interface;
+using CloudinaryDotNet;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -18,9 +19,31 @@ builder.Services.AddHttpContextAccessor();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddDbContext<ApplicationDbContext>(Options => Options.UseSqlServer(builder.Configuration.GetConnectionString("CodePulseConnectionString")));
 
-builder.Services.AddDbContext<AuthDbContext>(Options => Options.UseSqlServer(builder.Configuration.GetConnectionString("CodePulseConnectionString")));
+// ---- Database Configuration ----
+// Use PostgreSQL if DATABASE_URL env var is set (production), otherwise SQL Server (local dev)
+var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+if (!string.IsNullOrEmpty(databaseUrl))
+{
+    builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(databaseUrl));
+    builder.Services.AddDbContext<AuthDbContext>(options => options.UseNpgsql(databaseUrl));
+}
+else
+{
+    builder.Services.AddDbContext<ApplicationDbContext>(Options => Options.UseSqlServer(builder.Configuration.GetConnectionString("CodePulseConnectionString")));
+    builder.Services.AddDbContext<AuthDbContext>(Options => Options.UseSqlServer(builder.Configuration.GetConnectionString("CodePulseConnectionString")));
+}
+
+// ---- Cloudinary Configuration ----
+var cloudName = Environment.GetEnvironmentVariable("CLOUDINARY_CLOUD_NAME");
+var cloudApiKey = Environment.GetEnvironmentVariable("CLOUDINARY_API_KEY");
+var cloudApiSecret = Environment.GetEnvironmentVariable("CLOUDINARY_API_SECRET");
+if (!string.IsNullOrEmpty(cloudName) && !string.IsNullOrEmpty(cloudApiKey) && !string.IsNullOrEmpty(cloudApiSecret))
+{
+    var account = new Account(cloudName, cloudApiKey, cloudApiSecret);
+    var cloudinary = new Cloudinary(account);
+    builder.Services.AddSingleton(cloudinary);
+}
 
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
@@ -43,6 +66,12 @@ builder.Services.Configure<IdentityOptions>(Options =>
     Options.Password.RequiredUniqueChars = 1;
 });
 
+// ---- JWT Configuration ----
+// Read from env vars first, fall back to appsettings
+var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ?? builder.Configuration["Jwt:Key"];
+var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? builder.Configuration["Jwt:Issuer"];
+var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? builder.Configuration["Jwt:Audience"];
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(Options =>
     {
@@ -53,32 +82,68 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!))
         };
     });
 
+// ---- Port Configuration (Render provides PORT env var) ----
+var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
+builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// ---- Auto-migrate database on startup (for production) ----
+if (!string.IsNullOrEmpty(databaseUrl))
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    using (var scope = app.Services.CreateScope())
+    {
+        var appDb = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        appDb.Database.Migrate();
+        var authDb = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+        authDb.Database.Migrate();
+    }
 }
+
+// Configure the HTTP request pipeline.
+// Enable Swagger in all environments for API documentation
+app.UseSwagger();
+app.UseSwaggerUI();
+
+// ---- CORS Configuration ----
+var allowedOrigins = Environment.GetEnvironmentVariable("ALLOWED_ORIGINS");
 app.UseCors(Options =>
 {
     Options.AllowAnyHeader();
     Options.AllowAnyMethod();
-    Options.AllowAnyOrigin();
+    if (!string.IsNullOrEmpty(allowedOrigins))
+    {
+        var origins = allowedOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        Options.WithOrigins(origins);
+    }
+    else
+    {
+        Options.AllowAnyOrigin();
+    }
 });
-app.UseStaticFiles(new StaticFileOptions
+
+// Serve static files for local image storage (dev mode)
+var imagesPath = Path.Combine(Directory.GetCurrentDirectory(), "Images");
+if (Directory.Exists(imagesPath))
 {
-    FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), "Images")),
-    RequestPath = "/Images"
-});
-app.UseHttpsRedirection();
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(imagesPath),
+        RequestPath = "/Images"
+    });
+}
+
+// Only redirect to HTTPS in development (Render handles SSL termination)
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthentication();
 

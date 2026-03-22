@@ -1,0 +1,11 @@
+# .dockerignore
+**/bin/
+**/obj/
+**/.vs/
+**/.git/
+**/Images/
+*.user
+*.suo
+.gitignore
+.gitattributes
+README.md
