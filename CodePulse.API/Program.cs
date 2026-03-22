@@ -21,7 +21,6 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // ---- Database Configuration ----
-// Use PostgreSQL if DATABASE_URL env var is set (production), otherwise SQL Server (local dev)
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 if (!string.IsNullOrEmpty(databaseUrl))
 {
@@ -30,8 +29,9 @@ if (!string.IsNullOrEmpty(databaseUrl))
 }
 else
 {
-    builder.Services.AddDbContext<ApplicationDbContext>(Options => Options.UseSqlServer(builder.Configuration.GetConnectionString("CodePulseConnectionString")));
-    builder.Services.AddDbContext<AuthDbContext>(Options => Options.UseSqlServer(builder.Configuration.GetConnectionString("CodePulseConnectionString")));
+    var neonConn = "Host=ep-still-bar-a14yboal-pooler.ap-southeast-1.aws.neon.tech;Database=neondb;Username=neondb_owner;Password=npg_cdPp2USnm6KX;SSL Mode=Require;Trust Server Certificate=true;";
+    builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(neonConn));
+    builder.Services.AddDbContext<AuthDbContext>(options => options.UseNpgsql(neonConn));
 }
 
 // ---- Cloudinary Configuration ----
