@@ -12,6 +12,14 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ---- Disable config file-watching (fixes inotify limit crash on Render free tier) ----
+builder.Configuration.Sources.Clear();
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false)
+    .AddEnvironmentVariables()
+    .AddCommandLine(args);
+
 // Add services to the container.
 
 builder.Services.AddControllers();
