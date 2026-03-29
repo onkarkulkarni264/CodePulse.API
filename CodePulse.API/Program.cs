@@ -16,9 +16,19 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// ---- CORS Registration ----
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
 
 // ---- Database Configuration ----
 // Npgsql 7.x does not support 'channel_binding' parameter — strip it if present
@@ -107,22 +117,8 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-// ---- CORS Configuration ----
-var allowedOrigins = Environment.GetEnvironmentVariable("ALLOWED_ORIGINS");
-app.UseCors(Options =>
-{
-    Options.AllowAnyHeader();
-    Options.AllowAnyMethod();
-    if (!string.IsNullOrEmpty(allowedOrigins))
-    {
-        var origins = allowedOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries);
-        Options.WithOrigins(origins);
-    }
-    else
-    {
-        Options.AllowAnyOrigin();
-    }
-});
+// ---- CORS ----
+app.UseCors("AllowAll");
 
 // Serve static files for local image storage (dev mode)
 var imagesPath = Path.Combine(Directory.GetCurrentDirectory(), "Images");
