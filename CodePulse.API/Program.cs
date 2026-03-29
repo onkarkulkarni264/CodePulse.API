@@ -21,11 +21,16 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // ---- Database Configuration ----
+// Npgsql 7.x does not support 'channel_binding' parameter — strip it if present
+static string SanitizeNpgsqlConnectionString(string url) =>
+    url.Replace("&channel_binding=require", "").Replace("?channel_binding=require&", "?").Replace("?channel_binding=require", "");
+
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 if (!string.IsNullOrEmpty(databaseUrl))
 {
-    builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(databaseUrl));
-    builder.Services.AddDbContext<AuthDbContext>(options => options.UseNpgsql(databaseUrl));
+    var sanitizedUrl = SanitizeNpgsqlConnectionString(databaseUrl);
+    builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(sanitizedUrl));
+    builder.Services.AddDbContext<AuthDbContext>(options => options.UseNpgsql(sanitizedUrl));
 }
 else
 {

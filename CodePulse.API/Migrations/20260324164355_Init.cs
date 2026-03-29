@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -9,7 +9,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CodePulse.API.Migrations
 {
     /// <inheritdoc />
-    public partial class Init : Migration
+    public partial class InitAuth : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -171,7 +171,7 @@ namespace CodePulse.API.Migrations
             migrationBuilder.InsertData(
                 table: "AspNetUsers",
                 columns: new[] { "Id", "AccessFailedCount", "ConcurrencyStamp", "Email", "EmailConfirmed", "LockoutEnabled", "LockoutEnd", "NormalizedEmail", "NormalizedUserName", "PasswordHash", "PhoneNumber", "PhoneNumberConfirmed", "SecurityStamp", "TwoFactorEnabled", "UserName" },
-                values: new object[] { "7f577b8b-dac2-45f7-b58a-a882ccbd14f2", 0, "321dd87c-9333-4a35-a401-2cd0487607eb", "admin@codepulse.com", false, false, null, "ADMIN@CODEPULSE.COM", "ADMIN", "AQAAAAIAAYagAAAAEGDjK50iwPY4LUo+oaxn3vrPQY6InP9PbMwy1RoVrnxJQH9E9GArB9U2AdkoIwOvzg==", null, false, "29f091d3-4c56-4714-904b-d7b9151bbcd1", false, "admin@codepulse.com" });
+                values: new object[] { "7f577b8b-dac2-45f7-b58a-a882ccbd14f2", 0, "f689773a-d61d-47c8-a9fb-eb68e2df105a", "admin@codepulse.com", false, false, null, "ADMIN@CODEPULSE.COM", "ADMIN", "AQAAAAIAAYagAAAAENOJRXo1SsvPAnSX/kcPNP0dGlkiXhikzEPWvQGK7uJUNWVyvE/Gb4rqzLlIrVmnAg==", null, false, "a49b5434-d660-4009-a358-8d94a1764870", false, "admin@codepulse.com" });
 
             migrationBuilder.InsertData(
                 table: "AspNetUserRoles",
