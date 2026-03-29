@@ -99,17 +99,8 @@ builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
 var app = builder.Build();
 
-// ---- Auto-migrate database on startup (for production) ----
-if (!string.IsNullOrEmpty(databaseUrl))
-{
-    using (var scope = app.Services.CreateScope())
-    {
-        var appDb = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        appDb.Database.Migrate();
-        var authDb = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
-        authDb.Database.Migrate();
-    }
-}
+
+
 
 // Configure the HTTP request pipeline.
 // Enable Swagger in all environments for API documentation
