@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using CodePulse.API.Models.Domain;
 using CodePulse.API.Repositories.Interface;
@@ -28,6 +28,7 @@ namespace CodePulse.API.Controllers
         }
         //url [POST]: {apibaseurl}/api/images
         [HttpPost]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> UploadImage([FromForm]IFormFile file, [FromForm] string title, [FromForm] string fileName)
         {
             ValidateFile(file);
