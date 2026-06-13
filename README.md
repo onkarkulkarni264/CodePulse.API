@@ -1,1 +1,1 @@
-# CodePulse.API
+# CodePulse is A Code blog App
