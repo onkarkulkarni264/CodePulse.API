@@ -41,7 +41,7 @@ namespace CodePulse.API.Controllers
                     FileExtension = Path.GetExtension(request.File.FileName),
                     Title = request.Title,
                     FileName = request.FileName,
-                    DateCreated = DateTime.Now
+                    DateCreated = DateTime.UtcNow
                 };
                 var blogImageDTO = await _imageRepository.Upload(request.File, blogImage);
                 return Ok(blogImageDTO);
