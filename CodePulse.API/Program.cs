@@ -1,4 +1,5 @@
 using CodePulse.API.Data;
+using CodePulse.API.Models;
 using CodePulse.API.Repositories.Implementation;
 using CodePulse.API.Repositories.Interface;
 using CloudinaryDotNet;
@@ -9,6 +10,7 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,8 +19,28 @@ builder.Configuration.Sources.Clear();
 builder.Configuration
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
     .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false)
+    .AddJsonFile("google-credentials.json", optional: true, reloadOnChange: false)
     .AddEnvironmentVariables()
     .AddCommandLine(args);
+
+static string? ResolveGoogleClientId(IConfiguration configuration, string contentRootPath)
+{
+    var clientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
+    if (!string.IsNullOrWhiteSpace(clientId))
+    {
+        return clientId;
+    }
+
+    clientId = configuration["Google:ClientId"];
+    if (!string.IsNullOrWhiteSpace(clientId))
+    {
+        return clientId;
+    }
+    return null;
+}
+
+var googleClientId = ResolveGoogleClientId(builder.Configuration, builder.Environment.ContentRootPath) ?? string.Empty;
+builder.Services.AddSingleton(new GoogleAuthSettings { ClientId = googleClientId });
 
 // Add services to the container.
 
