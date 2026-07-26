@@ -1,6 +1,7 @@
 ﻿using CodePulse.API.Models;
 using CodePulse.API.Models.DTO;
 using CodePulse.API.Repositories.Interface;
+using CodePulse.API.Services;
 using Google.Apis.Auth;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -14,15 +15,18 @@ namespace CodePulse.API.Controllers
         private readonly UserManager<IdentityUser> _userManager;
         private readonly ITokenRepository _tokenRepository;
         private readonly GoogleAuthSettings _googleAuthSettings;
+        private readonly INotificationService _notificationService;
 
         public AuthController(
             UserManager<IdentityUser> userManager,
             ITokenRepository tokenRepository,
-            GoogleAuthSettings googleAuthSettings)
+            GoogleAuthSettings googleAuthSettings,
+            INotificationService notificationService)
         {
             _userManager = userManager;
             _tokenRepository = tokenRepository;
             _googleAuthSettings = googleAuthSettings;
+            _notificationService = notificationService;
         }
 
         [HttpGet]
@@ -53,6 +57,32 @@ namespace CodePulse.API.Controllers
                 identityResult = await _userManager.AddToRoleAsync(user, "Reader");
                 if (identityResult.Succeeded)
                 {
+                    // Fire-and-forget notifications — don't block registration response
+                    var name = request.Name ?? request.Email;
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await _notificationService.SendWelcomeEmailAsync(request.Email, name);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[Email] Failed to send welcome email to {request.Email}: {ex.Message}");
+                        }
+                    });
+
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await _notificationService.SendWelcomeSmsAsync(request.PhoneNumber, name);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[SMS] Failed to send welcome SMS to {request.PhoneNumber}: {ex.Message}");
+                        }
+                    });
+
                     return Ok();
                 }
 
@@ -136,9 +166,11 @@ namespace CodePulse.API.Controllers
                 return ValidationProblem(ModelState);
             }
 
+            var isNewUser = false;
             var user = await _userManager.FindByEmailAsync(payload.Email);
             if (user is null)
             {
+                isNewUser = true;
                 user = new IdentityUser
                 {
                     UserName = payload.Email,
@@ -171,6 +203,23 @@ namespace CodePulse.API.Controllers
                 {
                     await _userManager.AddToRoleAsync(user, "Reader");
                 }
+            }
+
+            // Send welcome email for new Google sign-ups (Google provides name but not phone)
+            if (isNewUser)
+            {
+                var name = payload.Name ?? payload.Email;
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _notificationService.SendWelcomeEmailAsync(payload.Email, name);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Email] Failed to send welcome email to {payload.Email}: {ex.Message}");
+                    }
+                });
             }
 
             var roles = await _userManager.GetRolesAsync(user);

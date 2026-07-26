@@ -2,6 +2,7 @@ using CodePulse.API.Data;
 using CodePulse.API.Models;
 using CodePulse.API.Repositories.Implementation;
 using CodePulse.API.Repositories.Interface;
+using CodePulse.API.Services;
 using CloudinaryDotNet;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -94,6 +95,9 @@ builder.Services.AddScoped<ITokenRepository, TokenRepository>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IBlogPostRepository, BlogPostRepository>();
 builder.Services.AddScoped<IImageRepository, ImageRepository>();
+
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddHttpClient();
 
 builder.Services.AddIdentityCore<IdentityUser>()
                 .AddRoles<IdentityRole>()
