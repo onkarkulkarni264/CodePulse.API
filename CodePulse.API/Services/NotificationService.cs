@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Mail;
 using System.Text;
+using Microsoft.Extensions.Logging;
 
 namespace CodePulse.API.Services
 {
@@ -9,23 +10,43 @@ namespace CodePulse.API.Services
         private readonly IConfiguration _configuration;
         private readonly IWebHostEnvironment _env;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly ILogger<NotificationService> _logger;
 
         public NotificationService(
             IConfiguration configuration,
             IWebHostEnvironment env,
-            IHttpClientFactory httpClientFactory)
+            IHttpClientFactory httpClientFactory,
+            ILogger<NotificationService> logger)
         {
             _configuration = configuration;
             _env = env;
             _httpClientFactory = httpClientFactory;
+            _logger = logger;
         }
 
         public async Task SendWelcomeEmailAsync(string email, string name)
         {
+            _logger.LogInformation("Attempting to send welcome email to {Email} for {Name}...", email, name);
+
             var fromEmail = _configuration["Smtp:FromEmail"];
             var appPassword = _configuration["Smtp:AppPassword"];
 
+            if (string.IsNullOrWhiteSpace(fromEmail) || string.IsNullOrWhiteSpace(appPassword))
+            {
+                _logger.LogError("SMTP credentials not configured correctly. FromEmail: {FromEmail}, Password present: {HasPassword}",
+                    fromEmail, !string.IsNullOrWhiteSpace(appPassword));
+                throw new InvalidOperationException("SMTP credentials are not configured.");
+            }
+
             var templatePath = Path.Combine(_env.ContentRootPath, "HTMLTemplate", "EmailTemplate.html");
+            _logger.LogInformation("Loading email template from path: {TemplatePath}", templatePath);
+            
+            if (!File.Exists(templatePath))
+            {
+                _logger.LogError("Email template file does not exist at {TemplatePath}", templatePath);
+                throw new FileNotFoundException("Email template file not found.", templatePath);
+            }
+
             var htmlBody = await File.ReadAllTextAsync(templatePath);
             htmlBody = htmlBody.Replace("#Name#", name);
 
@@ -38,6 +59,7 @@ namespace CodePulse.API.Services
             };
             message.To.Add(new MailAddress(email));
 
+            _logger.LogInformation("Initializing SmtpClient for smtp.gmail.com:587 (SSL enabled)");
             using var client = new SmtpClient("smtp.gmail.com")
             {
                 Port = 587,
@@ -45,7 +67,17 @@ namespace CodePulse.API.Services
                 EnableSsl = true
             };
 
-            await client.SendMailAsync(message);
+            try
+            {
+                _logger.LogInformation("Sending mail message via SmtpClient...");
+                await client.SendMailAsync(message);
+                _logger.LogInformation("Welcome email sent successfully to {Email}!", email);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send welcome email to {Email}", email);
+                throw;
+            }
         }
 
         public async Task SendWelcomeSmsAsync(string phoneNumber, string name)

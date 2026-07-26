@@ -96,7 +96,7 @@ builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IBlogPostRepository, BlogPostRepository>();
 builder.Services.AddScoped<IImageRepository, ImageRepository>();
 
-builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddTransient<INotificationService, NotificationService>();
 builder.Services.AddHttpClient();
 
 builder.Services.AddIdentityCore<IdentityUser>()

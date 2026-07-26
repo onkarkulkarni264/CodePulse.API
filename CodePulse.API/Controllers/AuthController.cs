@@ -5,6 +5,8 @@ using CodePulse.API.Services;
 using Google.Apis.Auth;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace CodePulse.API.Controllers
 {
@@ -16,17 +18,23 @@ namespace CodePulse.API.Controllers
         private readonly ITokenRepository _tokenRepository;
         private readonly GoogleAuthSettings _googleAuthSettings;
         private readonly INotificationService _notificationService;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
+        private readonly ILogger<AuthController> _logger;
 
         public AuthController(
             UserManager<IdentityUser> userManager,
             ITokenRepository tokenRepository,
             GoogleAuthSettings googleAuthSettings,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            IServiceScopeFactory serviceScopeFactory,
+            ILogger<AuthController> logger)
         {
             _userManager = userManager;
             _tokenRepository = tokenRepository;
             _googleAuthSettings = googleAuthSettings;
             _notificationService = notificationService;
+            _serviceScopeFactory = serviceScopeFactory;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -61,25 +69,39 @@ namespace CodePulse.API.Controllers
                     var name = request.Name ?? request.Email;
                     _ = Task.Run(async () =>
                     {
-                        try
+                        using (var scope = _serviceScopeFactory.CreateScope())
                         {
-                            await _notificationService.SendWelcomeEmailAsync(request.Email, name);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[Email] Failed to send welcome email to {request.Email}: {ex.Message}");
+                            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+                            var logger = scope.ServiceProvider.GetRequiredService<ILogger<AuthController>>();
+                            logger.LogInformation("[Email] Background task started for welcome email to {Email}", request.Email);
+                            try
+                            {
+                                await notificationService.SendWelcomeEmailAsync(request.Email, name);
+                                logger.LogInformation("[Email] Welcome email background task completed successfully for {Email}", request.Email);
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError(ex, "[Email] Failed to send welcome email in background to {Email}", request.Email);
+                            }
                         }
                     });
 
                     _ = Task.Run(async () =>
                     {
-                        try
+                        using (var scope = _serviceScopeFactory.CreateScope())
                         {
-                            await _notificationService.SendWelcomeSmsAsync(request.PhoneNumber, name);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[SMS] Failed to send welcome SMS to {request.PhoneNumber}: {ex.Message}");
+                            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+                            var logger = scope.ServiceProvider.GetRequiredService<ILogger<AuthController>>();
+                            logger.LogInformation("[SMS] Background task started for welcome SMS to {PhoneNumber}", request.PhoneNumber);
+                            try
+                            {
+                                await notificationService.SendWelcomeSmsAsync(request.PhoneNumber, name);
+                                logger.LogInformation("[SMS] Welcome SMS background task completed successfully for {PhoneNumber}", request.PhoneNumber);
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError(ex, "[SMS] Failed to send welcome SMS in background to {PhoneNumber}", request.PhoneNumber);
+                            }
                         }
                     });
 
@@ -211,13 +233,20 @@ namespace CodePulse.API.Controllers
                 var name = payload.Name ?? payload.Email;
                 _ = Task.Run(async () =>
                 {
-                    try
+                    using (var scope = _serviceScopeFactory.CreateScope())
                     {
-                        await _notificationService.SendWelcomeEmailAsync(payload.Email, name);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[Email] Failed to send welcome email to {payload.Email}: {ex.Message}");
+                        var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+                        var logger = scope.ServiceProvider.GetRequiredService<ILogger<AuthController>>();
+                        logger.LogInformation("[Email] Background task started for Google welcome email to {Email}", payload.Email);
+                        try
+                        {
+                            await notificationService.SendWelcomeEmailAsync(payload.Email, name);
+                            logger.LogInformation("[Email] Google welcome email background task completed successfully for {Email}", payload.Email);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex, "[Email] Failed to send Google welcome email in background to {Email}", payload.Email);
+                        }
                     }
                 });
             }
