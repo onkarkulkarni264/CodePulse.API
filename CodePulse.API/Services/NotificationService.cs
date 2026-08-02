@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Mail;
 using System.Text;
 using Microsoft.Extensions.Logging;
 
@@ -28,19 +26,18 @@ namespace CodePulse.API.Services
         {
             _logger.LogInformation("Attempting to send welcome email to {Email} for {Name}...", email, name);
 
-            var fromEmail = _configuration["Smtp:FromEmail"];
-            var appPassword = _configuration["Smtp:AppPassword"];
+            var resendApiKey = _configuration["Resend:ApiKey"];
+            var fromEmail = _configuration["Resend:FromEmail"] ?? "CodePulse <onboarding@resend.dev>";
 
-            if (string.IsNullOrWhiteSpace(fromEmail) || string.IsNullOrWhiteSpace(appPassword))
+            if (string.IsNullOrWhiteSpace(resendApiKey))
             {
-                _logger.LogError("SMTP credentials not configured correctly. FromEmail: {FromEmail}, Password present: {HasPassword}",
-                    fromEmail, !string.IsNullOrWhiteSpace(appPassword));
-                throw new InvalidOperationException("SMTP credentials are not configured.");
+                _logger.LogError("Resend API key is not configured. Set Resend:ApiKey in configuration.");
+                throw new InvalidOperationException("Resend API key is not configured.");
             }
 
             var templatePath = Path.Combine(_env.ContentRootPath, "HTMLTemplate", "EmailTemplate.html");
             _logger.LogInformation("Loading email template from path: {TemplatePath}", templatePath);
-            
+
             if (!File.Exists(templatePath))
             {
                 _logger.LogError("Email template file does not exist at {TemplatePath}", templatePath);
@@ -50,28 +47,34 @@ namespace CodePulse.API.Services
             var htmlBody = await File.ReadAllTextAsync(templatePath);
             htmlBody = htmlBody.Replace("#Name#", name);
 
-            using var message = new MailMessage
-            {
-                From = new MailAddress(fromEmail, "CodePulse"),
-                Subject = "Welcome to CodePulse! 🚀",
-                Body = htmlBody,
-                IsBodyHtml = true
-            };
-            message.To.Add(new MailAddress(email));
-
-            _logger.LogInformation("Initializing SmtpClient for smtp.gmail.com:587 (SSL enabled)");
-            using var client = new SmtpClient("smtp.gmail.com")
-            {
-                Port = 587,
-                Credentials = new NetworkCredential(fromEmail, appPassword),
-                EnableSsl = true
-            };
-
             try
             {
-                _logger.LogInformation("Sending mail message via SmtpClient...");
-                await client.SendMailAsync(message);
-                _logger.LogInformation("Welcome email sent successfully to {Email}!", email);
+                _logger.LogInformation("Sending welcome email via Resend API to {Email}...", email);
+
+                using var client = _httpClientFactory.CreateClient("Resend");
+                client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", $"Bearer {resendApiKey}");
+
+                var payload = new
+                {
+                    from = fromEmail,
+                    to = new[] { email },
+                    subject = "Welcome to CodePulse! 🚀",
+                    html = htmlBody
+                };
+
+                var json = System.Text.Json.JsonSerializer.Serialize(payload);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                var response = await client.PostAsync("https://api.resend.com/emails", content);
+                var responseBody = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError("Resend API returned {StatusCode}: {ResponseBody}", response.StatusCode, responseBody);
+                    throw new HttpRequestException($"Resend API error: {response.StatusCode} - {responseBody}");
+                }
+
+                _logger.LogInformation("Welcome email sent successfully to {Email} via Resend! Response: {ResponseBody}", email, responseBody);
             }
             catch (Exception ex)
             {
